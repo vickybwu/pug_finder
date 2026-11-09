@@ -49,7 +49,7 @@ if st.button("Find pugs", type="primary"):
                     st.image(l["photo"], use_container_width=True)
                 st.subheader(l["name"])
                 st.write(describe(l))
-                fee = f"${l['fee']:,}" if l.get("fee") else "Price not found"
+                fee = f"${l['fee']:,}" if l.get("fee") else "Price not listed"
                 st.write(f"**{fee}**" + (f" · {l['location']}" if l["location"] else ""))
                 st.caption(l["snippet"])
                 st.caption(l["source"])

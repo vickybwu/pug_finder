@@ -140,7 +140,8 @@ def matches(l, c):
     t, unknown_ok = l["text"], c.get("allow_unknown", False)
     if c.get("require_complete", True):
         # must be one specific dog with every detail stated
-        if not (l["ages"] and l["gender"] == "male" and l["colors_found"] and l["fee"]):
+        if not (l["ages"] and l["gender"] == "male" and l["colors_found"]
+                and (l["fee"] or not c.get("require_price", False))):
             return False
         if l["price_count"] > c.get("max_prices_on_page", 2) or l["age_count"] > c.get("max_ages_on_page", 2):
             return False  # page lists several dogs (litter, directory, breeder catalog)
@@ -189,7 +190,7 @@ def render(listings, total, new_only):
       {'<img src="' + e(l['photo']) + '">' if l.get('photo') else '<div class="noimg">🐶</div>'}
       <div class="body"><h3>{e(l['name'])}</h3>
         <p>{e(describe(l))}</p>
-        <p><b>{'$' + format(l['fee'], ',') if l['fee'] else 'Price not found'}</b>{' · ' + e(l['location']) if l['location'] else ''}</p>
+        <p><b>{'$' + format(l['fee'], ',') if l['fee'] else 'Price not listed'}</b>{' · ' + e(l['location']) if l['location'] else ''}</p>
         <p class="snip">{e(l['snippet'])}</p>
         <p class="meta">{e(l['source'])}</p></div></a>""" for l in listings)
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>Pug Finder</title><style>
