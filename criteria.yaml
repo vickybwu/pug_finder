@@ -3,10 +3,20 @@ queries:
   - male fawn pug for sale
   - fawn male pug for adoption
   - adult male pug for sale
+  - 1 year old male pug for sale
   - 2 year old male pug for sale
+  - 3 year old male pug for sale
+  - young adult male pug for sale
   - pug rescue adopt male
-results_per_query: 15
-max_pages: 40              # max result pages to scrape per run
+  - male pug for rehoming
+  - apricot male pug for sale
+  - fawn pug adult for adoption
+  - pug dog for adoption male fawn
+  - retired male pug for sale
+  - pug adoption male 2 years
+  - adopt a pug male near me
+results_per_query: 30
+max_pages: 100             # max result pages to scrape per run
 
 min_age_years: 1
 max_age_years: 3

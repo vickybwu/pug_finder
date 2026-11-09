@@ -1,7 +1,8 @@
 """Pug Finder web app (Streamlit). Run locally: streamlit run app.py"""
 import streamlit as st
 
-from pug_finder import describe, fetch_demo, fetch_web, load_criteria, matches
+import pug_finder
+from pug_finder import describe, diagnose, fetch_demo, fetch_web, load_criteria, matches
 
 
 def get_access_code():
@@ -28,17 +29,23 @@ demo = st.checkbox("Use sample data (offline test)")
 @st.cache_data(ttl=600, show_spinner=False)  # reuse results for 10 min so repeat clicks are instant
 def run_search(demo: bool):
     listings = fetch_demo(criteria) if demo else fetch_web(criteria)
-    return listings, [l for l in listings if matches(l, criteria)]
+    n_urls = None if demo else pug_finder.LAST_STATS.get("urls")
+    return listings, [l for l in listings if matches(l, criteria)], n_urls
 
 
 if st.button("Find pugs", type="primary"):
-    with st.spinner("Searching the web and reading listings (about 30-60 seconds)..."):
+    with st.spinner("Searching the web and reading listings (about 1-2 minutes)..."):
         try:
-            listings, hits = run_search(demo)
+            listings, hits, n_urls = run_search(demo)
         except Exception as e:
             st.error(f"Search failed: {e}")
             st.stop()
     st.success(f"{len(hits)} matches out of {len(listings)} pages scanned")
+    with st.expander("Why were pages dropped?", expanded=not hits):
+        st.code("\n".join(diagnose(listings, criteria, n_urls)))
+        for l in listings[:60]:
+            r = pug_finder.reject_reason(l, criteria)
+            st.markdown(f"- {'✅' if r is None else '❌ ' + r} · [{l['name'][:70]}]({l['url']})")
     st.caption("Details are read automatically from each page and can be wrong. "
                "Always verify with the seller, and never pay before meeting the dog.")
     cols = st.columns(3)

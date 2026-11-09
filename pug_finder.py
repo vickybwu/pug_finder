@@ -65,7 +65,7 @@ def fetch_page(url):
     import httpx
     from bs4 import BeautifulSoup
     try:
-        r = httpx.get(url, headers=HEADERS, timeout=12, follow_redirects=True)
+        r = httpx.get(url, headers=HEADERS, timeout=10, follow_redirects=True)
         if r.status_code != 200 or "html" not in r.headers.get("content-type", ""):
             return None
     except Exception:
@@ -83,10 +83,14 @@ def fetch_page(url):
     return {"url": str(r.url), "title": title, "text": text, "photo": meta("og:image")}
 
 
+LAST_STATS = {}
+
+
 def fetch_web(c):
     urls = search_web(c)
+    LAST_STATS["urls"] = len(urls)
     print(f"Search found {len(urls)} candidate pages; scraping...")
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=16) as pool:
         pages = [p for p in pool.map(fetch_page, urls) if p]
     return [extract(p, c) for p in pages]
 
@@ -98,6 +102,13 @@ def fetch_demo(c):
 
 # ---------- 3. Pull fields out of the page text ----------
 NUM = r"(\d+(?:\.\d+)?)\s*-?\s*"
+
+
+def ages_in(t):
+    a = [float(x) for x in re.findall(NUM + r"(?:years?|yrs?)\b", t)]
+    a += [float(x) / 12 for x in re.findall(NUM + r"(?:months?|mos?)\b", t)]
+    a += [float(x) / 52 for x in re.findall(NUM + r"(?:weeks?|wks?)\b", t)]
+    return a
 
 
 def extract(p, c):
@@ -122,8 +133,9 @@ def extract(p, c):
         "text": t, "ages": ages, "puppy_words": bool(re.search(r"\bpupp(y|ies)\b", t)),
         "gender": gender, "colors_found": wanted, "dark_found": dark,
         "fee": prices[0] if prices else None,
-        "price_count": len(set(prices)),
-        "age_count": len({round(a, 1) for a in ages}),
+        "price_count": len(set(int(x.replace(",", "")) for x in re.findall(r"\$\s?(\d{1,2},\d{3}|\d{2,5})(?![\d,])", raw[:2500]))),
+        "age_count": len({round(a, 1) for a in ages_in(t[:2500])}),
+        "head": ((p.get("title") or "") + " " + t[:1500]).lower(),
         "location": f"{loc.group(1)}, {loc.group(2)}" if loc else "",
         "snippet": snippet(raw),
     }
@@ -136,42 +148,58 @@ def snippet(raw, n=220):
 
 
 # ---------- 4. Filter by criteria ----------
-def matches(l, c):
+def reject_reason(l, c):
+    """Return why a page was dropped, or None if it matches."""
     t, unknown_ok = l["text"], c.get("allow_unknown", False)
-    if c.get("require_complete", True):
-        # must be one specific dog with every detail stated
-        if not (l["ages"] and l["gender"] == "male" and l["colors_found"]
-                and (l["fee"] or not c.get("require_price", False))):
-            return False
-        if l["price_count"] > c.get("max_prices_on_page", 2) or l["age_count"] > c.get("max_ages_on_page", 2):
-            return False  # page lists several dogs (litter, directory, breeder catalog)
-        if re.search(r"\b(puppies|litters?|dogs available|available dogs|our pugs)\b", t):
-            return False
     if "pug" not in t:
-        return False
+        return "not about pugs"
     if not any(k in t for k in c.get("listing_keywords", [])):
-        return False  # probably an article, not a listing
+        return "not a listing (article/guide)"
     if any(k in t for k in c.get("exclude_keywords", [])):
-        return False  # health issues or scam wording
+        return "health issue or scam wording"
+    if c.get("require_complete", True):
+        if not l["ages"]:
+            return "no age stated"
+        if l["gender"] != "male":
+            return {"female": "female", "mixed": "male & female listed"}.get(l["gender"], "no sex stated")
+        if not l["colors_found"]:
+            return "dark color" if l["dark_found"] else "no color stated"
+        if c.get("require_price", False) and not l["fee"]:
+            return "no price"
+        if l["price_count"] > c.get("max_prices_on_page", 2) or l["age_count"] > c.get("max_ages_on_page", 2):
+            return "several dogs on page"
+        if re.search(r"\b(litters?|dogs available|available dogs|our pugs)\b", l["head"]):
+            return "litter / catalog page"
     genders = c.get("genders", [])
     if "male" in genders and "female" not in genders:
         if l["gender"] == "female" or (not l["gender"] and not unknown_ok):
-            return False
+            return "not male"
     lo, hi = c.get("min_age_years", 0), c.get("max_age_years", 99)
     if l["ages"]:
         if not any(lo <= a <= hi for a in l["ages"]):
-            return False
-    elif l["puppy_words"] and lo >= 1:
-        return False
+            return f"age outside {lo}-{hi} yrs"
     elif not unknown_ok:
-        return False
+        return "no age stated"
     if l["dark_found"] and not l["colors_found"]:
-        return False
-    if not l["colors_found"] and not unknown_ok:
-        return False
+        return "dark color"
     if c.get("max_fee") and l["fee"] and l["fee"] > c["max_fee"]:
-        return False
-    return True
+        return "over max price"
+    return None
+
+
+def matches(l, c):
+    return reject_reason(l, c) is None
+
+
+def diagnose(listings, c, n_urls=None):
+    from collections import Counter
+    reasons = Counter(reject_reason(l, c) or "MATCH" for l in listings)
+    lines = []
+    if n_urls is not None:
+        lines.append(f"search links found: {n_urls}")
+        lines.append(f"pages that loaded: {len(listings)} (others blocked or timed out)")
+    lines += [f"{v:>3}  {k}" for k, v in reasons.most_common()]
+    return lines
 
 
 def describe(l):
@@ -217,6 +245,7 @@ def main():
         print(f"[error] search failed: {ex}")
         listings = []
     hits = [l for l in listings if matches(l, c)]
+    print("\n".join(diagnose(listings, c, LAST_STATS.get("urls"))))
     new = hits if (show_all or demo) else [l for l in hits if l["url"] not in seen]
     OUT_FILE.write_text(render(new, len(listings), not (show_all or demo)))
     if not demo:
