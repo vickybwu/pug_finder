@@ -14,7 +14,10 @@ genders: [male]
 colors: [fawn, apricot]
 exclude_colors: [black, brindle, silver, gray, grey, chocolate, merle]
 max_fee: null              # e.g. 2000; null = no limit
-allow_unknown: true        # keep pages that don't state age/sex/color (verify yourself)
+allow_unknown: false
+require_complete: true     # only pages for ONE specific male pug with age, color and price stated
+max_prices_on_page: 2      # more prices than this = page lists several dogs
+max_ages_on_page: 2        # more ages than this = page lists several dogs
 
 listing_keywords: [for sale, adopt, available, rehome, rehoming, price, fee]
 exclude_keywords: [shipping only, gift card, zelle only, wire transfer, western union,

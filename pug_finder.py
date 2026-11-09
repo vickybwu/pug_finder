@@ -122,6 +122,8 @@ def extract(p, c):
         "text": t, "ages": ages, "puppy_words": bool(re.search(r"\bpupp(y|ies)\b", t)),
         "gender": gender, "colors_found": wanted, "dark_found": dark,
         "fee": prices[0] if prices else None,
+        "price_count": len(set(prices)),
+        "age_count": len({round(a, 1) for a in ages}),
         "location": f"{loc.group(1)}, {loc.group(2)}" if loc else "",
         "snippet": snippet(raw),
     }
@@ -135,7 +137,15 @@ def snippet(raw, n=220):
 
 # ---------- 4. Filter by criteria ----------
 def matches(l, c):
-    t, unknown_ok = l["text"], c.get("allow_unknown", True)
+    t, unknown_ok = l["text"], c.get("allow_unknown", False)
+    if c.get("require_complete", True):
+        # must be one specific dog with every detail stated
+        if not (l["ages"] and l["gender"] == "male" and l["colors_found"] and l["fee"]):
+            return False
+        if l["price_count"] > c.get("max_prices_on_page", 2) or l["age_count"] > c.get("max_ages_on_page", 2):
+            return False  # page lists several dogs (litter, directory, breeder catalog)
+        if re.search(r"\b(puppies|litters?|dogs available|available dogs|our pugs)\b", t):
+            return False
     if "pug" not in t:
         return False
     if not any(k in t for k in c.get("listing_keywords", [])):
