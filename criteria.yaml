@@ -1,12 +1,23 @@
-# Edit these to change what counts as a match
-location: null            # null = search all of the US; or a ZIP / "City, ST" to search nearby
-distance_miles: null      # only used if location is set (Petfinder max 500)
-countries: [US]           # Petfinder also has Canada; keep US only
-max_fee: null             # null = no price limit
-ages: [young]             # Petfinder "young" = roughly 1-3 years
+# What to search for and what counts as a match. Edit freely.
+queries:
+  - male fawn pug for sale
+  - fawn male pug for adoption
+  - adult male pug for sale
+  - 2 year old male pug for sale
+  - pug rescue adopt male
+results_per_query: 15
+max_pages: 40              # max result pages to scrape per run
+
+min_age_years: 1
+max_age_years: 3
 genders: [male]
-colors: [fawn, apricot]   # light coats only
-exclude_colors: [black, dark, brindle, silver, gray, grey]
-healthy_only: true        # drop listings marked special needs or not up to date on shots
-must_be_good_with_children: false
-exclude_keywords: [shipping only, gift card, zelle only, wire transfer, special needs, medical needs, hospice, heartworm positive, needs surgery]
+colors: [fawn, apricot]
+exclude_colors: [black, brindle, silver, gray, grey, chocolate, merle]
+max_fee: null              # e.g. 2000; null = no limit
+allow_unknown: true        # keep pages that don't state age/sex/color (verify yourself)
+
+listing_keywords: [for sale, adopt, available, rehome, rehoming, price, fee]
+exclude_keywords: [shipping only, gift card, zelle only, wire transfer, western union,
+                   special needs, medical needs, hospice, heartworm positive, needs surgery]
+blocked_domains: [facebook.com, craigslist.org, pinterest., youtube.com, wikipedia.org,
+                  reddit.com, instagram.com, tiktok.com, amazon.com, ebay.com, etsy.com]

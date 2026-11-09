@@ -1,49 +1,46 @@
 """Pug Finder web app (Streamlit). Run locally: streamlit run app.py"""
-import os
-from pathlib import Path
-
 import streamlit as st
-import yaml
 
-# Load secrets (Streamlit Cloud) into env vars before using the finder
-try:
-    for k in ("PETFINDER_KEY", "PETFINDER_SECRET"):
-        if k in st.secrets:
-            os.environ[k] = st.secrets[k]
-    APP_PASSWORD = st.secrets.get("APP_PASSWORD")
-except Exception:  # no secrets file locally
-    APP_PASSWORD = None
+from pug_finder import describe, fetch_demo, fetch_web, load_criteria, matches
 
-from pug_finder import fetch_petfinder, fetch_demo, matches
+
+def get_access_code():
+    try:
+        return st.secrets.get("ACCESS_CODE")
+    except Exception:  # no secrets configured
+        return None
+
 
 st.set_page_config(page_title="Pug Finder", page_icon="🐶", layout="wide")
 st.title("🐶 Pug Finder")
-st.caption("Male · about 1-3 years · fawn or apricot · healthy · US")
+st.caption("Searches the web for male pugs, about 1-3 years old, fawn or apricot, healthy, in the US")
 
-# Optional shared password to protect your API quota
-if APP_PASSWORD and st.text_input("Password", type="password") != APP_PASSWORD:
-    st.stop()
+code = get_access_code()
+if code:
+    entered = st.text_input("Access code", type="password")
+    if entered != code:
+        st.stop()
 
-criteria = yaml.safe_load((Path(__file__).parent / "criteria.yaml").read_text())
-demo = not os.environ.get("PETFINDER_KEY")
-if demo:
-    st.info("No Petfinder key configured - showing sample data.")
+criteria = load_criteria()
+demo = st.checkbox("Use sample data (offline test)")
 
 
-@st.cache_data(ttl=600, show_spinner=False)  # cache 10 min so repeat clicks don't burn quota
+@st.cache_data(ttl=600, show_spinner=False)  # reuse results for 10 min so repeat clicks are instant
 def run_search(demo: bool):
-    listings = fetch_demo(criteria) if demo else fetch_petfinder(criteria)
+    listings = fetch_demo(criteria) if demo else fetch_web(criteria)
     return listings, [l for l in listings if matches(l, criteria)]
 
 
 if st.button("Find pugs", type="primary"):
-    with st.spinner("Searching..."):
+    with st.spinner("Searching the web and reading listings (about 30-60 seconds)..."):
         try:
             listings, hits = run_search(demo)
         except Exception as e:
             st.error(f"Search failed: {e}")
             st.stop()
-    st.success(f"{len(hits)} matches out of {len(listings)} listings")
+    st.success(f"{len(hits)} matches out of {len(listings)} pages scanned")
+    st.caption("Details are read automatically from each page and can be wrong. "
+               "Always verify with the seller, and never pay before meeting the dog.")
     cols = st.columns(3)
     for i, l in enumerate(hits):
         with cols[i % 3]:
@@ -51,8 +48,9 @@ if st.button("Find pugs", type="primary"):
                 if l.get("photo"):
                     st.image(l["photo"], use_container_width=True)
                 st.subheader(l["name"])
-                st.write(f"{l['age'].title()} · {l['gender'].title()} · {l['color'].title() or '-'}")
-                fee = f"${l['fee']:,}" if l.get("fee") is not None else "Fee not listed"
-                st.write(f"**{fee}** · {l['location']}")
-                st.caption(f"{l['source']} · posted {l['posted']}")
+                st.write(describe(l))
+                fee = f"${l['fee']:,}" if l.get("fee") else "Price not found"
+                st.write(f"**{fee}**" + (f" · {l['location']}" if l["location"] else ""))
+                st.caption(l["snippet"])
+                st.caption(l["source"])
                 st.link_button("View listing", l["url"])
