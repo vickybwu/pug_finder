@@ -1,3 +1,14 @@
+# Where to look. Each source is skipped automatically if its key isn't set.
+#   petfinder    - Petfinder's public widget endpoint (no key; undocumented, may break)
+#   rescuegroups - needs RESCUEGROUPS_KEY (free for adoption projects)
+#   web          - DuckDuckGo web search + page scraping (no key, less accurate, often blocked)
+sources: [petfinder, web]
+petfinder_variables: {first: 100}
+
+countries: [US]
+api_age_groups: [young, adult]   # used when a listing has no exact age
+require_exact_age: false         # true = drop API listings that only give an age group
+
 # What to search for and what counts as a match. Edit freely.
 queries:
   - male fawn pug for sale
@@ -15,7 +26,8 @@ queries:
   - retired male pug for sale
   - pug adoption male 2 years
   - adopt a pug male near me
-results_per_query: 30
+results_per_query: 20
+pause_seconds: 2         # wait between searches so DuckDuckGo doesn't block us
 max_pages: 100             # max result pages to scrape per run
 
 min_age_years: 1
@@ -35,3 +47,8 @@ exclude_keywords: [shipping only, gift card, zelle only, wire transfer, western 
                    special needs, medical needs, hospice, heartworm positive, needs surgery]
 blocked_domains: [facebook.com, craigslist.org, pinterest., youtube.com, wikipedia.org,
                   reddit.com, instagram.com, tiktok.com, amazon.com, ebay.com, etsy.com]
+
+# Ranking mode: only scams and non-listings are removed. Everything else is shown,
+# with full matches first and partial matches (missing age/sex/color etc.) below.
+scam_keywords: [shipping only, gift card, zelle only, wire transfer, western union, cash app only]
+health_keywords: [special needs, medical needs, hospice, heartworm positive, needs surgery]

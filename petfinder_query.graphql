@@ -1,0 +1,25 @@
+# Best-guess query for Petfinder's public GraphQL endpoint (used by their embeddable widget).
+# It is undocumented. If the app says "query rejected", the diagnostics panel lists the
+# real field names; update this file (no code changes needed).
+query PugSearch($first: Int) {
+  animals(
+    filter: { type: ["dog"], breed: ["Pug"], gender: ["male"], status: ["adoptable"], age: ["young", "adult"] }
+    first: $first
+  ) {
+    edges {
+      node {
+        id
+        name
+        url
+        age
+        gender
+        breeds { primary secondary mixed }
+        colors { primary secondary }
+        description
+        attributes { special_needs }
+        photos { medium }
+        contact { address { city state country } }
+      }
+    }
+  }
+}
